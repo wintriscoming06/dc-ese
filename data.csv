@@ -1,0 +1,6 @@
+curr_node,next_node,is_active,priority_ranking
+1,2,TRUE,3
+2,3,FALSE,5
+3,4,TRUE,8
+4,5,TRUE,2
+5,1,TRUE,9
