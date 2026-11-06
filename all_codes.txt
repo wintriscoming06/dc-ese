@@ -1,445 +1,645 @@
 ================================================================================
-FILE: 01_rpc.py
+FOLDER: Exp01_RPC | FILE: 01_rpc.py
 ================================================================================
 
-# EXPERIMENT 1: RMI / RPC SIMULATION
+# ==============================================================================
+# EXPERIMENT 1: REMOTE PROCEDURE CALL (RPC) / RMI SIMULATION
+# Description: Demonstrates client-to-server procedure dispatch using a dictionary
+#              dispatch table, reading requests from a CSV file.
 # CSV required: rpc_calls_33.csv
+# ==============================================================================
+
+# Import the standard Python csv module to handle reading and parsing CSV files
 import csv
 
-# Server procedure 1: receives an amount and returns a processed value.
+# Define a remote procedure 'processData' which takes an amount and returns processed value
 def processData(amount):
+    # Log the execution of the method on the server with the received parameter
     print("[SERVER] Processing:", amount)
+    # Perform arithmetic processing by adding 50 to the received amount and return the result
     return amount + 50
 
-# Server procedure 2: checks whether the donation meets the minimum.
+# Define another remote procedure 'checkDonation' that validates eligibility based on amount threshold
 def checkDonation(amount):
+    # Log the execution of the donation check on the server
     print("[SERVER] Checking donation:", amount)
+    # Check if the donation amount meets or exceeds the minimum threshold of 500
     if amount >= 500:
+        # Return success message if donation is eligible
         return "Eligible donation"
+    # Otherwise, return failure message if donation is below the minimum limit
     return "Below minimum donation"
 
-# Map the procedure name sent by the client to its actual Python function.
+# Create a dispatch table (dictionary) mapping string procedure names to their corresponding functions
 methods = {
-    "processData": processData,
-    "checkDonation": checkDonation
+    "processData": processData,      # Map string "processData" to the processData function object
+    "checkDonation": checkDonation   # Map string "checkDonation" to the checkDonation function object
 }
 
-# Read the client requests from the CSV file.
+# Open the CSV file containing client RPC requests in read mode with newline='' for proper line handling
 with open("rpc_calls_33.csv", "r", newline="") as file:
+    # Initialize a CSV reader object to iterate over lines in the file
     reader = csv.reader(file)
-    next(reader)  # Skip the header row.
+    # Skip the first header row (column headers: call_id, client, method_name, parameter)
+    next(reader)
 
+    # Iterate through each data row in the CSV file
     for row in reader:
-        call_id = row[0]             # Request ID.
-        client = row[1]              # Client name.
-        method_name = row[2]         # Requested server procedure.
-        parameter = int(row[3])      # Convert CSV text to integer.
+        call_id = row[0]             # Column 0: Unique identifier for the RPC request call
+        client = row[1]              # Column 1: Client identifier initiating the remote call
+        method_name = row[2]         # Column 2: Name of the remote procedure to be invoked
+        parameter = int(row[3])      # Column 3: Argument passed to the procedure, converted to an integer
 
+        # Print the dispatch log showing which client is calling which method with which call ID
         print("\n[DISPATCH]", call_id, client, "invoking", method_name)
 
-        # Check that the requested procedure exists.
+        # Verify whether the requested remote method exists in our dispatch dictionary
         if method_name in methods:
-            result = methods[method_name](parameter)  # Execute procedure.
+            # Dynamically look up the function in the dispatch table and execute it with the parameter
+            result = methods[method_name](parameter)
+            # Print the server's return value to show successful RPC response
             print("[RETURN] Result:", result)
         else:
+            # Handle cases where client requested a procedure that does not exist on the server
             print("[RETURN] Unknown method")
 
 
 ================================================================================
-FILE: 02_bully.py
+FOLDER: Exp02_Bully | FILE: 02_bully.py
 ================================================================================
 
-# EXPERIMENT 2: BULLY LEADER ELECTION
-# CSV required: bully_cluster_340.csv
+# ==============================================================================
+# EXPERIMENT 2: BULLY LEADER ELECTION ALGORITHM
+# Description: Demonstrates election in distributed systems where the node with the
+#              highest active ID bullies lower IDs and claims coordinator role.
+# CSV required: bully_cluster_340.csv (or bully_cluster_34.csv)
+# ==============================================================================
+
+# Import standard csv module to read cluster nodes and their alive/coordinator statuses
 import csv
 
-nodes = {}                # node ID -> True if alive.
-coordinator_status = {}   # node ID -> True if current coordinator.
+# Dictionary mapping node_id (int) -> is_alive (bool)
+nodes = {}
+# Dictionary mapping node_id (int) -> is_current_coordinator (bool)
+coordinator_status = {}
 
-# Read node status from the CSV file.
+# Open the cluster configuration CSV file in read mode
 with open("bully_cluster_340.csv", "r", newline="") as file:
+    # Create the CSV reader object
     reader = csv.reader(file)
-    next(reader)  # Skip headings.
+    # Skip the header row (node_id, is_alive, is_current_coordinator)
+    next(reader)
 
+    # Iterate over each row to populate node information
     for row in reader:
-        node_id = int(row[0])
-        nodes[node_id] = row[1].strip().upper() == "TRUE"
-        coordinator_status[node_id] = row[2].strip().upper() == "TRUE"
+        node_id = int(row[0])                                           # Column 0: Node identifier (converted to integer)
+        nodes[node_id] = row[1].strip().upper() == "TRUE"               # Column 1: Convert string 'TRUE'/'FALSE' to boolean alive status
+        coordinator_status[node_id] = row[2].strip().upper() == "TRUE"  # Column 2: Convert string 'TRUE'/'FALSE' to boolean coordinator flag
 
-# Find the node currently marked as coordinator.
+# Initialize variable to store the ID of the current coordinator
 coordinator = None
+
+# Search through the dictionary to find which node was marked as the active coordinator
 for node_id in nodes:
+    # If this node has the coordinator flag set to True
     if coordinator_status[node_id]:
+        # Assign coordinator variable to this node ID
         coordinator = node_id
+        # Break the loop since there can be only one coordinator initially
         break
 
-# If the coordinator is alive, no election is required.
+# Check if a coordinator was found and whether that coordinator node is currently alive
 if coordinator is not None and nodes[coordinator]:
+    # If the coordinator is alive, system is healthy, so no election is triggered
     print("Coordinator", coordinator, "is active.")
 else:
+    # If the coordinator has failed or is None, election must be initiated
     print("Coordinator", coordinator, "has failed.")
 
-    # Collect all nodes that are currently alive.
+    # Initialize a list to hold all node IDs that are currently alive
     alive_nodes = []
+    # Iterate over all node IDs in the cluster
     for node_id in nodes:
+        # Check if the current node is alive
         if nodes[node_id]:
+            # Add alive node ID to our list of alive nodes
             alive_nodes.append(node_id)
 
+    # Check if there is at least one active node available to run the election
     if alive_nodes:
-        # Start the demonstration from the lowest-ID alive node.
+        # The lowest-ID active node detects the failure and initiates the election
         initiator = min(alive_nodes)
+        # Announce that this node is starting the election process
         print("Node", initiator, "starts election.")
 
-        # Send ELECTION messages to all higher-ID alive nodes.
+        # Initialize a list to store higher ID nodes that should receive election messages
         higher_nodes = []
+        # Check all alive nodes to find those with higher ID than the initiator
         for node_id in alive_nodes:
+            # If the node has an ID strictly greater than the initiator
             if node_id > initiator:
+                # Add it to the higher_nodes list
                 higher_nodes.append(node_id)
+                # Print the ELECTION message transmission from initiator to the higher node
                 print("ELECTION:", initiator, "->", node_id)
 
-        # Higher alive nodes respond with OK.
+        # All higher alive nodes reply with an OK message to take over the election
         for node_id in higher_nodes:
+            # Print that the higher node sends an OK message back to the initiator
             print("OK:", node_id, "->", initiator)
 
-        # The highest-ID alive node wins.
+        # In Bully algorithm, the alive node with the absolute maximum ID wins the election
         new_coordinator = max(alive_nodes)
+        # Announce the winning node of the election
         print("Node", new_coordinator, "wins the election.")
 
-        # Announce the new coordinator to every alive node.
+        # The new coordinator broadcasts COORDINATOR announcement to all alive nodes
         for node_id in alive_nodes:
+            # Print the announcement message sent to each alive node
             print("COORDINATOR:", new_coordinator, "->", node_id)
 
+        # Print the final elected coordinator
         print("New Coordinator:", new_coordinator)
     else:
+        # Handle edge case where no nodes in the cluster are alive
         print("No alive nodes available.")
 
 
 ================================================================================
-FILE: 03_berkeley.py
+FOLDER: Exp03_Berkeley | FILE: 03_berkeley.py
 ================================================================================
 
-# EXPERIMENT 3: BERKELEY CLOCK SYNCHRONIZATION
+# ==============================================================================
+# EXPERIMENT 3: BERKELEY CLOCK SYNCHRONIZATION ALGORITHM
+# Description: Demonstrates internal clock synchronization where a master polls
+#              slave clocks, filters faulty readings, computes the average,
+#              and broadcasts adjustments to synchronize all nodes.
 # CSV required: node_clocks_35.csv
+# ==============================================================================
+
+# Import csv module to parse node clock values and fault flags
 import csv
 
-nodes = {}  # Stores only valid node clock readings.
+# Dictionary mapping node name (str) -> clock time (int) for non-faulty nodes
+nodes = {}
 
-# Read clock values and fault status.
+# Open the node clocks CSV file in read mode
 with open("node_clocks_35.csv", "r", newline="") as file:
+    # Create the CSV reader object
     reader = csv.reader(file)
-    next(reader)  # Skip header.
+    # Skip the header row (node, clock, is_faulty)
+    next(reader)
 
+    # Loop through each row in the CSV file
     for row in reader:
-        node = row[0]
-        clock_time = int(row[1])
-        is_faulty = row[2].strip().upper() == "TRUE"
+        node = row[0]                                   # Column 0: Node identifier (e.g. S1, S2, Master)
+        clock_time = int(row[1])                        # Column 1: Clock reading in time units (converted to int)
+        is_faulty = row[2].strip().upper() == "TRUE"    # Column 2: Boolean flag indicating if node clock is faulty
 
-        # Ignore faulty nodes as required by the question slip.
+        # In Berkeley algorithm, readings from faulty or outlier nodes are discarded
         if is_faulty:
+            # Log that this faulty node's clock reading is being ignored
             print("Discarding faulty node:", node)
         else:
+            # Store the valid clock time in our dictionary with the node name as key
             nodes[node] = clock_time
 
-print("\nOriginal Clock Times:")
+# Print header for original clock readings
+print("Original Clock Times:")
+# Iterate through all valid nodes and display their original unadjusted clock times
 for node, clock_time in nodes.items():
+    # Print node name and its corresponding clock time
     print(node, ":", clock_time)
 
-# Calculate the average of valid clocks.
-if nodes:
-    total = 0
-    for clock_time in nodes.values():
-        total += clock_time
+# Initialize total clock time accumulator to zero
+total = 0
+# Sum up all valid clock readings
+for clock_time in nodes.values():
+    # Add each node's clock time to the running total
+    total += clock_time
 
-    average = total / len(nodes)
-    print("\nAverage Time:", average)
+# Compute average clock time across all non-faulty participating nodes
+average = total / len(nodes)
+# Display the computed system-wide average time
+print("\nAverage Time:", average)
 
-    # Calculate how much each valid node must adjust its clock.
-    print("\nClock Adjustments:")
-    for node, clock_time in nodes.items():
-        adjustment = average - clock_time
-        new_time = clock_time + adjustment
-        print(node, "Adjustment:", adjustment, "New Time:", new_time)
-else:
-    print("No valid clocks available.")
+# Print header for calculated clock adjustments
+print("\nClock Adjustments:")
+# Iterate over each participating node to calculate the specific offset needed
+for node, clock_time in nodes.items():
+    # Calculate adjustment offset: difference between target average and current clock
+    adjustment = average - clock_time
+    # Calculate the new synchronized time after applying the adjustment
+    new_time = clock_time + adjustment
+    # Print the node, the required adjustment offset, and the resulting synchronized time
+    print(node, "Adjustment:", adjustment, "New Time:", new_time)
 
 
 ================================================================================
-FILE: 04_multithreading_mutex.py
+FOLDER: Exp04_Multithreading | FILE: 04_multithreading_mutex.py
 ================================================================================
 
-# EXPERIMENT 4: MULTITHREADING USING MUTEX LOCKS
+# ==============================================================================
+# EXPERIMENT 4: MULTITHREADING AND MUTEX SYNCHRONIZATION
+# Description: Demonstrates concurrent worker threads processing tasks and using
+#              a mutual exclusion (Mutex) lock to safely update shared state.
 # CSV required: tasks_50.csv
+# ==============================================================================
+
+# Import csv module for reading task data
 import csv
+# Import threading module for creating and synchronizing threads
 import threading
+# Import time module to simulate task execution duration
 import time
 
+# List to hold all raw task records loaded from the CSV
 tasks = []
 
-# Read tasks from CSV into a list.
+# Open the task CSV file in read mode
 with open("tasks_50.csv", "r", newline="") as file:
+    # Initialize CSV reader object
     reader = csv.reader(file)
-    next(reader)  # Skip headings.
+    # Skip the CSV header row (task_id, worker, duration_ms, priority, status)
+    next(reader)
+    # Iterate through each row in the CSV
     for row in reader:
+        # Append the row list representing a task to the tasks list
         tasks.append(row)
 
-completed_tasks = []          # Shared list accessed by multiple threads.
-lock = threading.Lock()       # Mutex protects the shared list and task status.
+# Shared resource list where finished task IDs are recorded by threads
+completed_tasks = []
+# Create a Mutex Lock object to protect shared resources and prevent race conditions
+lock = threading.Lock()
 
-# Each worker thread executes this function.
+# Worker function executed concurrently by each thread
 def worker(name, assigned_tasks):
+    # Iterate over all tasks specifically assigned to this worker thread
     for task in assigned_tasks:
+        # Log that this worker has started processing the task
         print(name, "processing", task[0])
 
-        # Simulate task duration; CSV value is in milliseconds.
+        # Simulate execution time by sleeping (CSV duration is in milliseconds, so divide by 1000)
         time.sleep(int(task[2]) / 1000)
 
+        # Log that the worker is requesting access to the critical section
         print(name, "waiting for lock")
 
-        # Only one thread can enter this critical section at a time.
+        # Acquire lock entering critical section (automatically released on exit)
         with lock:
+            # Log that lock has been successfully acquired
             print(name, "acquired lock")
+            # Safely append the completed task ID to the shared list
             completed_tasks.append(task[0])
+            # Update the task status to COMPLETED in the task record
             task[4] = "COMPLETED"
+            # Log that lock is about to be released
             print(name, "released lock")
-        # The lock is automatically released after the with block.
 
-# Group rows by the worker name specified in the CSV.
+# Dictionary to partition and group tasks by their assigned worker name
 tasks_by_worker = {}
+# Iterate through each task to group them
 for task in tasks:
-    worker_name = task[1]
+    worker_name = task[1]  # Column 1 contains worker identifier (e.g. Worker-1)
+    # If this worker does not have an entry in dictionary yet, initialize an empty list
     if worker_name not in tasks_by_worker:
         tasks_by_worker[worker_name] = []
+    # Add the current task to the worker's assigned list
     tasks_by_worker[worker_name].append(task)
 
+# List to keep track of all created Thread objects
 threads = []
 
-# Create and start one thread for each worker.
+# Instantiate and launch one thread per unique worker
 for worker_name, assigned_tasks in tasks_by_worker.items():
+    # Create thread with worker function as target and worker details as arguments
     thread = threading.Thread(
         target=worker,
         args=(worker_name, assigned_tasks)
     )
+    # Keep reference to thread in our list
     threads.append(thread)
+    # Start thread execution asynchronously
     thread.start()
 
-# Wait until every worker thread has finished.
+# Wait for all worker threads to finish before proceeding to the final summary
 for thread in threads:
+    # Block calling thread until this worker thread terminates
     thread.join()
 
+# Print final list of completed tasks across all threads
 print("\nCompleted tasks:", completed_tasks)
+# Print status of each individual task confirming completion
 for task in tasks:
+    # Print task ID and its updated status string
     print(task[0], task[4])
 
 
 ================================================================================
-FILE: 05_load_balancing.py
+FOLDER: Exp05_Load_Balancing | FILE: 05_load_balancing.py
 ================================================================================
 
-# EXPERIMENT 5: LOAD BALANCING - ROUND ROBIN AND LEAST CONNECTIONS
+# ==============================================================================
+# EXPERIMENT 5: DYNAMIC LOAD BALANCING ALGORITHMS
+# Description: Demonstrates Round Robin and Least Connections load balancing
+#              strategies to distribute workloads among available backend workers.
 # CSV required: workload_43.csv
+# ==============================================================================
+
+# Import csv module to parse incoming job workload data
 import csv
 
+# List to hold tuples of (job_id, compute_units)
 jobs = []
 
-# Read job IDs and compute requirements from CSV.
+# Open the workload CSV file in read mode
 with open("workload_43.csv", "r", newline="") as file:
+    # Create the CSV reader object
     reader = csv.reader(file)
-    next(reader)  # Skip headings.
+    # Skip the header row (job_id, compute_units)
+    next(reader)
+    # Loop through each row to extract jobs
     for row in reader:
+        # Append tuple with job ID string and compute units converted to integer
         jobs.append((row[0], int(row[1])))
 
+# Define list of available server workers
 workers = ["W1", "W2", "W3"]
 
-# ---------------- ROUND ROBIN ----------------
+# ---------------- ROUND ROBIN LOAD BALANCING ----------------
 print("\nROUND ROBIN")
+# Dictionary tracking total compute load accumulated on each worker
 load = {"W1": 0, "W2": 0, "W3": 0}
+# Dictionary tracking total count of jobs assigned to each worker
 count = {"W1": 0, "W2": 0, "W3": 0}
 
+# Iterate through every incoming job by index
 for i in range(len(jobs)):
+    # Retrieve current job tuple
     job = jobs[i]
-    worker_index = i % len(workers)  # Cycles through worker indexes.
+    # Modulo operator selects worker cyclically based on job index
+    worker_index = i % len(workers)
+    # Get the selected worker ID
     worker = workers[worker_index]
 
-    load[worker] += job[1]  # Add compute units assigned to this worker.
-    count[worker] += 1      # Count the assigned job.
+    # Add the job's compute units to the selected worker's total load
+    load[worker] += job[1]
+    # Increment the selected worker's assigned job count by 1
+    count[worker] += 1
+    # Print job assignment log
     print(job[0], "->", worker)
 
+# Print cumulative compute load assigned to each worker under Round Robin
 print("Compute Load:", load)
+# Print total number of jobs assigned to each worker under Round Robin
 print("Jobs per Worker:", count)
 
-# ---------------- LEAST CONNECTIONS ----------------
+# ---------------- LEAST CONNECTIONS LOAD BALANCING ----------------
 print("\nLEAST CONNECTIONS")
-# Example initial active connection counts.
+# Initialize baseline active connection counts for each worker before new jobs arrive
 count = {"W1": 2, "W2": 1, "W3": 3}
+# Reset cumulative load tracking for Least Connections simulation
 load = {"W1": 0, "W2": 0, "W3": 0}
 
+# Iterate through each job in the incoming queue
 for job in jobs:
+    # Assume first worker has least connections as initial candidate
     selected_worker = workers[0]
 
-    # Find the worker with the smallest connection count.
+    # Scan through all available workers to find the one with minimum active connections
     for worker in workers:
+        # If current worker has fewer connections than current minimum candidate
         if count[worker] < count[selected_worker]:
+            # Update candidate to this worker with fewer connections
             selected_worker = worker
 
+    # Add compute load of the job to the chosen worker
     load[selected_worker] += job[1]
-    count[selected_worker] += 1  # Assign one more connection/job.
+    # Increment active connection count for the chosen worker
+    count[selected_worker] += 1
+    # Print the assignment decision log
     print(job[0], "->", selected_worker)
 
+# Print cumulative compute load assigned under Least Connections
 print("Compute Load:", load)
+# Print final active connection count for each worker
 print("Final Connections:", count)
 
 
 ================================================================================
-FILE: 06_vector_clocks.py
+FOLDER: Exp06_Vector_Clocks | FILE: 06_vector_clocks.py
 ================================================================================
 
-# EXPERIMENT 6: VECTOR CLOCKS
+# ==============================================================================
+# EXPERIMENT 6: VECTOR CLOCKS AND CAUSAL RELATIONSHIPS
+# Description: Demonstrates vector clock maintenance across distributed processes
+#              (P1, P2, P3) and analyzes pairwise causal relationships
+#              (causally preceding vs concurrent).
 # CSV required: vector_events_36.csv
-# Process order determines vector positions: P1, P2, P3.
+# ==============================================================================
+
+# Import csv module to parse distributed events from CSV
 import csv
 
+# Ordered list of processes in the distributed system
 processes = ["P1", "P2", "P3"]
+# Dictionary to store the current vector clock for each process
 clocks = {}
 
-# Each process starts with a zero vector.
+# Initialize each process with a 3-element zero vector [0, 0, 0]
 for process in processes:
     clocks[process] = [0, 0, 0]
 
-messages = {}  # Stores vectors attached to messages.
-events = []    # Stores each event and its vector timestamp.
+# Dictionary to hold message transit vectors, keyed by (sender, receiver) tuple
+messages = {}
+# List to record each processed event along with its resulting vector clock snapshot
+events = []
 
+# Open the vector events CSV file in read mode
 with open("vector_events_36.csv", "r", newline="") as file:
+    # Initialize the CSV reader
     reader = csv.reader(file)
-    next(reader)  # Skip header.
+    # Skip the header row (event_id, process, action, target)
+    next(reader)
 
+    # Process events sequentially row by row
     for row in reader:
-        event_id = row[0]
-        process = row[1]
-        action = row[2]
-        target = row[3]
-        index = processes.index(process)
+        event_id = row[0]                   # Column 0: Event identifier (e.g. e1, e2)
+        process = row[1]                    # Column 1: Process executing the event (P1, P2, P3)
+        action = row[2]                     # Column 2: Type of action (SEND, RECEIVE, LOCAL)
+        target = row[3]                     # Column 3: Destination or source process
+        index = processes.index(process)    # Find position index (0, 1, or 2) of this process in vector
 
-        # On RECEIVE, merge local vector with the received vector.
+        # On RECEIVE event, update local clock by taking pairwise maximum with sender's vector
         if action == "RECEIVE":
-            key = (target, process)  # (sender, receiver).
-            received_vector = messages.pop(key)
+            key = (target, process)         # Key representing message channel (sender, receiver)
+            received_vector = messages.pop(key)  # Retrieve and remove sender's vector from transit
 
+            # Update each element of local vector with maximum of local and received value
             for i in range(3):
                 clocks[process][i] = max(
                     clocks[process][i], received_vector[i]
                 )
 
-        # Increment this process's own component for every event.
+        # Always increment the process's own vector component for every event (SEND, RECEIVE, LOCAL)
         clocks[process][index] += 1
+        # Create an independent copy of current vector clock snapshot
         current_vector = clocks[process].copy()
+        # Print event execution log and resulting vector timestamp
         print(event_id, process, action, "->", current_vector)
 
-        # On SEND, attach a copy of the current vector to the message.
+        # If action is SEND, save the current vector so it can be delivered with the message
         if action == "SEND":
             messages[(process, target)] = current_vector.copy()
 
+        # Record this event ID and its vector timestamp for pairwise causality analysis
         events.append((event_id, current_vector))
 
-# Return True when vector a causally happens before vector b.
+# Function to determine if vector 'a' causally happens before vector 'b' (a -> b)
 def happens_before(a, b):
-    all_less_or_equal = True
-    one_strictly_less = False
+    all_less_or_equal = True    # Must satisfy: a[i] <= b[i] for all i
+    one_strictly_less = False   # Must satisfy: a[i] < b[i] for at least one i
 
+    # Compare corresponding vector clock components element-wise
     for i in range(3):
+        # If any component of a exceeds b, then a cannot happen before b
         if a[i] > b[i]:
             all_less_or_equal = False
+        # If any component of a is strictly smaller than b, flag condition as met
         if a[i] < b[i]:
             one_strictly_less = True
 
+    # 'a' happens before 'b' if and only if both conditions hold true
     return all_less_or_equal and one_strictly_less
 
+# Print header for pairwise causality analysis
 print("\nPAIRWISE EVENT RELATIONSHIPS")
+# Compare every pair of recorded events (i, j) where i < j
 for i in range(len(events)):
     for j in range(i + 1, len(events)):
-        id_a, vector_a = events[i]
-        id_b, vector_b = events[j]
+        id_a, vector_a = events[i]  # Event A details
+        id_b, vector_b = events[j]  # Event B details
 
+        # Check if Event A causally precedes Event B
         if happens_before(vector_a, vector_b):
             print(id_a, "<", id_b, "(causally preceding)")
+        # Check if Event B causally precedes Event A
         elif happens_before(vector_b, vector_a):
             print(id_b, "<", id_a, "(causally preceding)")
+        # If neither happens before the other, the events are concurrent
         else:
             print(id_a, "||", id_b, "(concurrent)")
 
 
 ================================================================================
-FILE: 07_lamport_clock.py
+FOLDER: Exp07_Lamport_Clock | FILE: 07_lamport_clock.py
 ================================================================================
 
-# EXPERIMENT 7: LAMPORT'S LOGICAL CLOCK
+# ==============================================================================
+# EXPERIMENT 7: LAMPORT'S LOGICAL CLOCK ALGORITHM
+# Description: Demonstrates Lamport's algorithm for ordering events in a distributed
+#              system, resolving causality and establishing a total order of events.
 # CSV required: events_29.csv
+# ==============================================================================
+
+# Import csv module to parse events log
 import csv
 
-clock = {}      # Current logical clock for each process.
-messages = {}   # Timestamp of each sent message.
-events = []     # Event records for final timestamp ordering.
+# Dictionary storing current scalar logical clock for each process
+clock = {}
+# Dictionary storing timestamp of sent messages, keyed by (sender, receiver)
+messages = {}
+# List to collect all event records for total ordering: (timestamp, process, event_id)
+events = []
 
+# Open the events CSV file in read mode
 with open("events_29.csv", "r", newline="") as file:
+    # Initialize CSV reader object
     reader = csv.reader(file)
-    next(reader)  # Skip headings.
+    # Skip the header row (event_id, process, event_type, receiver, initial_clock)
+    next(reader)
 
+    # Process each recorded event row by row
     for row in reader:
-        event_id = row[0]
-        process = row[1]
-        event_type = row[2]
-        other_process = row[3]
-        initial = int(row[4])
+        event_id = row[0]           # Column 0: Event identifier (e.g. E1, E2)
+        process = row[1]            # Column 1: Process where event occurred (e.g. P1, P2)
+        event_type = row[2]         # Column 2: Event type (SEND, RECEIVE, or INTERNAL)
+        other_process = row[3]      # Column 3: Communication partner process
+        initial = int(row[4])       # Column 4: Initial clock value if process has not started yet
 
-        # Initialise a process clock when first encountered.
+        # If this process has not been registered yet, initialize its clock to initial value
         if process not in clock:
             clock[process] = initial
 
-        # A receive event merges the local clock with message timestamp.
+        # On a RECEIVE event, update local clock using Lamport's rule: max(local_clock, message_clock)
         if event_type == "RECEIVE":
-            key = (other_process, process)  # (sender, receiver).
-            received_time = messages.pop(key)
+            key = (other_process, process)          # Key format: (sender, receiver)
+            received_time = messages.pop(key)       # Retrieve and remove timestamp sent with the message
+            # Advance local clock to highest value between sender and receiver
             clock[process] = max(clock[process], received_time)
 
-        # Increment clock for local, send, and receive events.
+        # Lamport's rule: increment local clock by 1 for any event execution
         clock[process] += 1
+        # Capture current updated timestamp
         timestamp = clock[process]
+        # Display the event and its new timestamp
         print(event_id, process, event_type, "->", timestamp)
 
-        # Save timestamp when a message is sent.
+        # On a SEND event, store timestamp so the receiver can read it
         if event_type == "SEND":
             messages[(process, other_process)] = timestamp
 
+        # Append tuple to events list for total ordering comparison
         events.append((timestamp, process, event_id))
 
+# Print header for Total Ordering output
 print("\nTOTAL ORDER")
-events.sort()  # Sort by timestamp; process and event IDs break ties.
+# Sort events by timestamp; ties are deterministically broken by process name and event_id
+events.sort()
+# Display each event in its final total order sequence
 for timestamp, process, event_id in events:
+    # Print timestamp, process identifier, and event identifier
     print(timestamp, process, event_id)
 
 
 ================================================================================
-FILE: 08_cristian.py
+FOLDER: Exp08_Cristian | FILE: 08_cristian.py
 ================================================================================
 
-# EXPERIMENT 8: CRISTIAN'S CLOCK SYNCHRONIZATION
+# ==============================================================================
+# EXPERIMENT 8: CRISTIAN'S CLOCK SYNCHRONIZATION ALGORITHM
+# Description: Demonstrates external clock synchronization with a time server,
+#              accounting for network Round-Trip Time (RTT) delay.
 # CSV required: cristian_clocks_32.csv
+# ==============================================================================
+
+# Import csv module to parse client and server timing measurements
 import csv
 
+# Open the Cristian clock synchronization CSV file in read mode
 with open("cristian_clocks_32.csv", "r", newline="") as file:
+    # Initialize CSV reader object
     reader = csv.reader(file)
-    next(reader)  # Skip headings.
+    # Skip the header row (client, t0, server_time, t1)
+    next(reader)
 
+    # Iterate through each client synchronization record
     for row in reader:
-        client = row[0]
-        t0 = int(row[1])           # Client send time.
-        server_time = int(row[2]) # Server time in reply.
-        t1 = int(row[3])           # Client receive time.
+        client = row[0]             # Column 0: Client name / ID
+        t0 = int(row[1])            # Column 1: Time on client clock when request was SENT
+        server_time = int(row[2])   # Column 2: Timestamp provided by the time server in response
+        t1 = int(row[3])            # Column 3: Time on client clock when response was RECEIVED
 
-        rtt = t1 - t0  # Round-trip time.
-        estimated_time = server_time + (rtt / 2)  # Estimate one-way delay.
-        offset = estimated_time - t1  # Difference from client clock.
-        adjusted_time = t1 + offset   # Corrected client time.
+        # Calculate Round Trip Time (RTT): total elapsed time measured on client
+        rtt = t1 - t0
+        # Estimate true server time at moment of arrival assuming symmetric network transit delay (RTT / 2)
+        estimated_time = server_time + (rtt / 2)
+        # Calculate clock offset: difference between estimated true time and client's receive time
+        offset = estimated_time - t1
+        # Adjust client clock by adding the calculated offset to synchronize with server
+        adjusted_time = t1 + offset
 
+        # Print detailed synchronization report for the client
         print("\nClient:", client)
         print("RTT:", rtt, "ms")
         print("Estimated Server Time:", estimated_time, "ms")
@@ -448,113 +648,157 @@ with open("cristian_clocks_32.csv", "r", newline="") as file:
 
 
 ================================================================================
-FILE: 09_ring_election.py
+FOLDER: Exp09_Ring_Election | FILE: 09_ring_election.py
 ================================================================================
 
-# EXPERIMENT 9: RING LEADER ELECTION
-# CSV required: ring_nodes_31.csv
-# This version follows the uploaded code PDF: highest-priority active node wins.
+# ==============================================================================
+# EXPERIMENT 9: RING LEADER ELECTION ALGORITHM
+# Description: Demonstrates election in a logical ring topology where an election
+#              token traverses active nodes, selecting the highest-priority active node.
+# CSV required: ring_nodes_31.csv (or data.csv)
+# ==============================================================================
+
+# Import csv module to parse ring network configuration
 import csv
 
-nodes = {}       # Node ID -> active status.
-next_node = {}   # Node ID -> next node in ring.
-priority = {}    # Node ID -> priority value.
+# Dictionary mapping node_id (int) -> active status (bool)
+nodes = {}
+# Dictionary mapping node_id (int) -> next neighbor node_id (int) in the logical ring
+next_node = {}
+# Dictionary mapping node_id (int) -> priority rank (int)
+priority = {}
 
+# Open the ring topology CSV file in read mode
 with open("ring_nodes_31.csv", "r", newline="") as file:
+    # Initialize the CSV reader object
     reader = csv.reader(file)
-    next(reader)  # Skip headings.
+    # Skip the header row (node_id, next_id, active, priority_rank)
+    next(reader)
 
+    # Parse each node's configuration row
     for row in reader:
-        node_id = int(row[0])
-        next_id = int(row[1])
-        active = row[2].strip().upper() == "TRUE"
-        priority_rank = int(row[3])
+        node_id = int(row[0])                            # Column 0: Current node ID
+        next_id = int(row[1])                            # Column 1: Next neighbor node ID in the ring
+        active = row[2].strip().upper() == "TRUE"         # Column 2: Boolean active/alive flag
+        priority_rank = int(row[3])                      # Column 3: Node's election priority ranking
 
+        # Store properties in corresponding dictionaries
         nodes[node_id] = active
         next_node[node_id] = next_id
         priority[node_id] = priority_rank
 
+# Designate Node 1 as the initiator that detects failure and initiates the ring election
 initiator = 1
-token = [initiator]  # Election token starts with initiator.
+# Initialize token list with the initiator node ID as the first participant
+token = [initiator]
+# Point to the first recipient in the ring: the next neighbor of the initiator
 current = next_node[initiator]
 
+# Announce start of election by initiator
 print("Election initiated by Node", initiator)
 
-# Pass token around the ring until it returns to initiator.
+# Traverse the ring: pass election token around until it returns to the initiator
 while current != initiator:
+    # Check if the candidate node is currently active
     if nodes[current]:
+        # Active node adds its ID to the token list
         token.append(current)
+        # Log successful receipt of token by active node
         print("Token received by Node", current)
     else:
+        # Inactive or crashed node is bypassed in the ring
         print("Node", current, "is inactive. Skipping.")
 
+    # Move token to the next node in the ring sequence
     current = next_node[current]
 
-# Select highest-priority active participant.
-new_coordinator = token[0]
+# Select coordinator: iterate over all nodes that participated in the token
+new_coordinator = token[0]  # Start by assuming the first participant is winner
 for node in token:
+    # If this participant has a strictly higher priority ranking than current candidate
     if priority[node] > priority[new_coordinator]:
+        # Update winning coordinator to this higher-priority node
         new_coordinator = node
 
+# Display list of all participating nodes that received the token
 print("Participating nodes:", token)
+# Display the newly elected coordinator node ID
 print("New Coordinator:", new_coordinator)
+# Display the winning priority score of the elected coordinator
 print("Highest Priority:", priority[new_coordinator])
 
-# If your assigned slip says highest NODE ID instead of highest priority,
-# replace the selection section above with: new_coordinator = max(token).
-
 
 ================================================================================
-FILE: 10_mpi_matrix_scatter_gather_simulation.py
+FOLDER: Exp10_MPI_Scatter_Gather | FILE: 10_mpi_matrix_scatter_gather_simulation.py
 ================================================================================
 
-# EXPERIMENT 10: MATRIX MULTIPLICATION - SCATTER/GATHER SIMULATION
+# ==============================================================================
+# EXPERIMENT 10: MATRIX MULTIPLICATION - MPI SCATTER/GATHER SIMULATION
+# Description: Demonstrates MPI Scatter-Gather paradigm using concurrent threads
+#              to distribute rows of a matrix (scatter), compute products in parallel,
+#              and collect results back at the master (gather).
 # CSV required: matrix_22.csv
-# This is a local thread-based simulation, not actual MPI/mpi4py execution.
+# ==============================================================================
+
+# Import csv module to parse matrix elements from CSV
 import csv
+# Import ThreadPoolExecutor to simulate parallel MPI worker processes
 from concurrent.futures import ThreadPoolExecutor
 
+# Master matrix list to hold rows read from CSV
 matrix = []
 
-# Read matrix values from CSV. The first column contains row labels.
+# Open the matrix CSV file in read mode
 with open("matrix_22.csv", "r", newline="") as file:
+    # Create the CSV reader object
     reader = csv.reader(file)
-    next(reader)  # Skip column headings.
+    # Skip the header row (row_label, col1, col2, ...)
+    next(reader)
 
+    # Read each row of numbers from CSV
     for row in reader:
+        # Slice from index 1 to ignore row label, convert string values to integers
         matrix.append([int(value) for value in row[1:]])
 
-# Each worker calculates one output row of A x A.
+# Worker task function: calculates dot product of a given row against each matrix column (A x A)
 def multiply_row(row):
-    result_row = []
+    result_row = []  # List to store computed product values for this row
 
-    # zip(*matrix) produces one column at a time.
+    # zip(*matrix) transposes the matrix, providing one column at a time
     for column in zip(*matrix):
-        value = 0
+        value = 0    # Accumulator for dot product of row and column
 
-        # Calculate the dot product of this row and this column.
+        # Multiply corresponding row and column elements and sum them up
         for i in range(len(row)):
             value += row[i] * column[i]
 
+        # Append computed cell value to the output row
         result_row.append(value)
 
+    # Return the fully computed row
     return result_row
 
-# SCATTER: master distributes matrix rows to workers.
+# SCATTER PHASE: Master partitions and distributes rows among worker threads
 print("MASTER: Scattering matrix rows to workers...")
+# Enumerate through matrix rows to display assignment to workers
 for worker_id, row in enumerate(matrix):
+    # Log worker ID and the row data assigned to it
     print("Worker", worker_id, "received row", row)
 
-# Parallel row calculations using a local thread pool.
+# Execute parallel computation across worker pool simulating MPI distributed processes
 with ThreadPoolExecutor() as executor:
+    # Map the multiply_row task across all matrix rows concurrently
     result = list(executor.map(multiply_row, matrix))
 
-# GATHER: master collects the rows returned by workers.
+# GATHER PHASE: Master collects and aggregates computed rows returned by workers
 print("\nMASTER: Gathering results...")
+# Display each gathered row received from the workers
 for row in result:
     print(row)
 
+# Display final aggregated matrix product (A x A)
 print("\nFinal Matrix Product (A x A):")
+# Iterate and print each row of the final multiplied matrix
 for row in result:
     print(row)
 
